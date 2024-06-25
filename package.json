@@ -1,0 +1,22 @@
+{
+  "name": "automated-reply-tool",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "google-auth-library": "^9.11.0",
+    "googleapis": "^140.0.0",
+    "openai": "^4.52.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
