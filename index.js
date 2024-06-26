@@ -16,7 +16,10 @@ const writeFileAsync = promisify(fs.writeFile);
 
 // Authorize a client with credentials, then call the Gmail API
 authorize()
-  .then(listUnreadEmails)
+  .then(() => {
+    // Start polling for unread emails after authorization
+    pollEmails();
+  })
   .catch(console.error);
 
 /**
@@ -75,31 +78,54 @@ async function listUnreadEmails() {
   if (messages && messages.length) {
     console.log('Unread emails:');
     for (const message of messages) {
-      const res = await gmail.users.messages.get({
-        userId: 'me',
-        id: message.id,
-      });
-      const headers = res.data.payload.headers;
-      const subject = headers.find(header => header.name === 'Subject').value;
-      console.log('Subject:', subject);
-
-      const body = getBody(res.data.payload);
-      console.log('Body:', body);
-
-      const classification = await classifyEmail(body);
-      console.log('Classification:', classification);
-
-      // Mark email as read
-      await gmail.users.messages.modify({
-        userId: 'me',
-        id: message.id,
-        resource: {
-          removeLabelIds: ['UNREAD'],
-        },
-      });
+      await processEmail(gmail, message.id);
     }
   } else {
     console.log('No unread emails found.');
+  }
+}
+
+/**
+ * Processes an individual email.
+ * @param {Object} gmail - The Gmail API client.
+ * @param {string} messageId - The ID of the email message.
+ * @returns {Promise<void>}
+ */
+async function processEmail(gmail, messageId) {
+  try {
+    const res = await gmail.users.messages.get({
+      userId: 'me',
+      id: messageId,
+    });
+
+    const headers = res.data.payload.headers;
+    const subject = headers.find(header => header.name === 'Subject').value || '(No Subject)';
+    console.log('Subject:', subject);
+
+    const body = getBody(res.data.payload);
+    console.log('Body:', body);
+
+
+    if (body) {
+      // console.log("body",body)
+      const classification = await classifyEmail(body);
+      console.log('Classification:', classification);
+
+      // // Clear the header and body data for the next iteration
+      // subject = '';
+      // body = '';
+    }
+
+    // Mark email as read to avoid reprocessing
+    await gmail.users.messages.modify({
+      userId: 'me',
+      id: messageId,
+      resource: {
+        removeLabelIds: ['UNREAD'],
+      },
+    });
+  } catch (error) {
+    console.error('Error processing email:', error);
   }
 }
 
@@ -112,7 +138,7 @@ function getBody(payload) {
   const parts = payload.parts;
   if (parts) {
     for (const part of parts) {
-      if (part.mimeType === 'text/plain') {
+      if (part.mimeType === 'text/plain' && part.body.data) {
         return Buffer.from(part.body.data, 'base64').toString('utf8');
       } else if (part.mimeType === 'multipart/alternative') {
         return getBody(part);
@@ -129,6 +155,3 @@ function pollEmails() {
     pollEmails();
   }, 10000); // 10 seconds
 }
-
-// Start the polling
-pollEmails();
