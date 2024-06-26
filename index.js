@@ -9,6 +9,7 @@ authorizeGmail()
   .catch(console.error);
 
 // Authorize and start polling Outlook
+
 // authorizeOutlook()
 //   .then(() => {
 //     pollOutlookEmails();

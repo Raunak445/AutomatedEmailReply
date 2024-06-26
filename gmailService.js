@@ -3,6 +3,9 @@ const fs = require('fs');
 const readline = require('readline');
 const { promisify } = require('util');
 require('dotenv').config();
+const generateReply =require('./generateReply.js')
+
+const { classifyEmail } = require('./mailClassifier');
 
 const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TOKEN_PATH } = process.env;
 
