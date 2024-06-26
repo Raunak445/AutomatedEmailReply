@@ -11,10 +11,12 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@azure/identity": "^4.3.0",
     "@google/generative-ai": "^0.13.0",
     "@huggingface/agents": "^0.0.5",
     "@huggingface/hub": "^0.15.1",
     "@huggingface/inference": "^2.7.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "bullmq": "^5.8.2",
     "dotenv": "^16.4.5",
     "gemini-api": "^2.0.4",
