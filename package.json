@@ -15,11 +15,13 @@
     "@huggingface/agents": "^0.0.5",
     "@huggingface/hub": "^0.15.1",
     "@huggingface/inference": "^2.7.0",
+    "bullmq": "^5.8.2",
     "dotenv": "^16.4.5",
     "gemini-api": "^2.0.4",
     "google-auth-library": "^9.11.0",
     "googleapis": "^140.0.0",
     "node-fetch": "^3.3.2",
+    "nodemailer": "^6.9.14",
     "openai": "^4.52.0"
   },
   "devDependencies": {

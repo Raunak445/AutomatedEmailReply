@@ -3,6 +3,7 @@ const fs = require('fs');
 const readline = require('readline');
 const { promisify } = require('util');
 const { classifyEmail } = require('./mailClassifier');
+const generateReply = require('./generateReply');
 require('dotenv').config();
 
 const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TOKEN_PATH } = process.env;
@@ -28,14 +29,36 @@ authorize()
  * @returns {Promise<void>}
  */
 async function authorize() {
-  const token = await readFileAsync(TOKEN_PATH).catch(async (err) => {
+  let token;
+  try {
+    token = await readFileAsync(TOKEN_PATH);
+    if (token) {
+      oAuth2Client.setCredentials(JSON.parse(token));
+      if (!checkTokenValidity(oAuth2Client)) {
+        token = await getAccessToken();
+        oAuth2Client.setCredentials(JSON.parse(token));
+      }
+    }
+  } catch (err) {
     if (err.code === 'ENOENT') {
-      return await getAccessToken();
+      token = await getAccessToken();
+      oAuth2Client.setCredentials(JSON.parse(token));
     } else {
       throw err;
     }
-  });
-  oAuth2Client.setCredentials(JSON.parse(token));
+  }
+}
+
+/**
+ * Check if the OAuth2 token is expired or invalid.
+ * @param {OAuth2Client} oAuth2Client - The OAuth2 client instance.
+ * @returns {boolean} - True if token is valid, false otherwise.
+ */
+function checkTokenValidity(oAuth2Client) {
+  const accessToken = oAuth2Client.getAccessToken();
+  if (!accessToken) return false;
+  const expiry = oAuth2Client.credentials.expiry_date;
+  return expiry ? Date.now() < expiry : true;
 }
 
 /**
@@ -45,7 +68,7 @@ async function authorize() {
 async function getAccessToken() {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: 'offline',
-    scope: ['https://www.googleapis.com/auth/gmail.modify']
+    scope: ['https://www.googleapis.com/auth/gmail.modify'],
   });
   console.log('Authorize this app by visiting this url:', authUrl);
   const rl = readline.createInterface({
@@ -99,21 +122,38 @@ async function processEmail(gmail, messageId) {
     });
 
     const headers = res.data.payload.headers;
-    const subject = headers.find(header => header.name === 'Subject').value || '(No Subject)';
-    console.log('Subject:', subject);
+    const fromHeader = headers.find((header) => header.name === 'From');
+    let senderName = '';
+    let senderEmail = '';
+
+    if (fromHeader) {
+      const match = fromHeader.value.match(/^(.+?) <(.+?)>$/);
+      if (match) {
+        senderName = match[1]; // Extract sender's name
+        senderEmail = match[2]; // Extract sender's email
+      } else {
+        // Fallback in case the header format doesn't match expected pattern
+        senderEmail = fromHeader.value;
+      }
+    }
+
+    const subject = headers.find((header) => header.name === 'Subject').value || '(No Subject)';
 
     const body = getBody(res.data.payload);
-    console.log('Body:', body);
-
 
     if (body) {
-      // console.log("body",body)
       const classification = await classifyEmail(body);
-      console.log('Classification:', classification);
 
-      // // Clear the header and body data for the next iteration
-      // subject = '';
-      // body = '';
+      // Generate reply using generateReply function or other method
+      const emailData = {
+        category: classification.category,
+        senderName: senderName,
+        senderEmail: senderEmail,
+        emailText: body,
+      };
+      
+      const reply = await generateReply(emailData);
+      console.log('Generated Reply:', reply);
     }
 
     // Mark email as read to avoid reprocessing
