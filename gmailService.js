@@ -2,18 +2,14 @@ const { google } = require('googleapis');
 const fs = require('fs');
 const readline = require('readline');
 const { promisify } = require('util');
-const { classifyEmail } = require('./mailClassifier');
-const generateReply = require('./generateReply');
 require('dotenv').config();
 
 const { CLIENT_ID, CLIENT_SECRET, REDIRECT_URI, TOKEN_PATH } = process.env;
 
-// OAuth2 configuration
 const oAuth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
-
-// Promisify fs functions
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
+let refreshTimer;
 
 async function authorizeGmail() {
   let token;
@@ -22,14 +18,13 @@ async function authorizeGmail() {
     if (token) {
       oAuth2Client.setCredentials(JSON.parse(token));
       if (!checkTokenValidity(oAuth2Client)) {
-        token = await getGmailAccessToken();
-        oAuth2Client.setCredentials(JSON.parse(token));
+        await refreshAccessToken();
       }
+      scheduleTokenRefresh(oAuth2Client);
     }
   } catch (err) {
     if (err.code === 'ENOENT') {
-      token = await getGmailAccessToken();
-      oAuth2Client.setCredentials(JSON.parse(token));
+      await getGmailAccessToken();
     } else {
       throw err;
     }
@@ -37,8 +32,6 @@ async function authorizeGmail() {
 }
 
 function checkTokenValidity(oAuth2Client) {
-  const accessToken = oAuth2Client.getAccessToken();
-  if (!accessToken) return false;
   const expiry = oAuth2Client.credentials.expiry_date;
   return expiry ? Date.now() < expiry : true;
 }
@@ -60,9 +53,45 @@ async function getGmailAccessToken() {
     });
   });
   const { tokens } = await oAuth2Client.getToken(code);
-  await writeFileAsync(TOKEN_PATH, JSON.stringify(tokens));
-  console.log('Token stored to', TOKEN_PATH);
-  return tokens;
+  await saveToken(tokens);
+  oAuth2Client.setCredentials(tokens);
+  scheduleTokenRefresh(oAuth2Client);
+}
+
+async function saveToken(token) {
+  try {
+    await writeFileAsync(TOKEN_PATH, JSON.stringify(token));
+    console.log('Token stored to', TOKEN_PATH);
+  } catch (error) {
+    console.error('Error saving token:', error);
+  }
+}
+
+function scheduleTokenRefresh(oAuth2Client) {
+  const expiry = oAuth2Client.credentials.expiry_date;
+  if (!expiry) return;
+
+  const refreshTime = (expiry - Date.now()) / 2; // Schedule at half of the expiry duration
+
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+  }
+
+  refreshTimer = setTimeout(async () => {
+    await refreshAccessToken();
+  }, refreshTime);
+}
+
+async function refreshAccessToken() {
+  try {
+    const { credentials } = await oAuth2Client.refreshAccessToken();
+    await saveToken(credentials);
+    oAuth2Client.setCredentials(credentials);
+    console.log('Access token refreshed');
+    scheduleTokenRefresh(oAuth2Client);
+  } catch (error) {
+    console.error('Error refreshing access token:', error);
+  }
 }
 
 async function listUnreadGmailEmails() {
