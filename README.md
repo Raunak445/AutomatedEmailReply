@@ -36,7 +36,7 @@ docker run -itd -p 6379:6379 redis
 npm run dev
 
 
-#.env file details
+# .env file details
 
 # Google OAuth2 Credentials
 GOOGLE_CLIENT_ID=your-google-client-id
