@@ -22,6 +22,7 @@
     "gemini-api": "^2.0.4",
     "google-auth-library": "^9.11.0",
     "googleapis": "^140.0.0",
+    "isomorphic-fetch": "^3.0.0",
     "node-fetch": "^3.3.2",
     "nodemailer": "^6.9.14",
     "openai": "^4.52.0"
